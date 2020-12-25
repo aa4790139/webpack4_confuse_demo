@@ -1,14 +1,24 @@
-const {join} = require('path');
 const {VueLoaderPlugin} = require('vue-loader');
 const {HotModuleReplacementPlugin} = require('webpack');
 const HTMLWebpackPlugin = require('html-webpack-plugin');
-const UglifyJsPlugin = require('uglifyjs-webpack-plugin')
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+const DllReferencePlugin = require('webpack/lib/DllReferencePlugin');
+const {CleanWebpackPlugin} = require('clean-webpack-plugin');
+const path = require('path')
+
+function resolve(dir) {
+    return path.join(__dirname, '..', dir)
+}
 
 module.exports = {
-    entry: join(__dirname, 'app.js'),
+    context: path.resolve(__dirname, '../'),
+    entry: {
+        app: './src/app.js'
+    },
     output: {
-        path: join(__dirname, 'build'),
-        filename: 'app.min.js'
+        path: path.resolve(__dirname, '../dist'),
+        filename: 'app.bundle.js',
     },
     module: {
         rules: [
@@ -28,7 +38,17 @@ module.exports = {
                     'vue-style-loader',
                     'css-loader'
                 ]
-            }
+            },
+            {
+                test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
+                loader: 'url-loader',
+                options: {
+                    limit: 10000,
+                    useRelativePath: true,
+                    name: path.posix.join('static', 'img/[name].[hash].[ext]'),
+                    esModule: false
+                }
+            },
         ]
     },
     resolve: {
@@ -41,13 +61,18 @@ module.exports = {
         new HotModuleReplacementPlugin(),
         new VueLoaderPlugin(),
         new HTMLWebpackPlugin({
+            filename: path.resolve(__dirname, '../dist/index.html'),
+            template: path.resolve(__dirname, '../index.html'),
             showErrors: true,
             cache: true,
-            template: join(__dirname, 'index.html')
         }),
-    ],
-    optimization: {
-        minimizer: [new UglifyJsPlugin(
+        new CleanWebpackPlugin({
+            root: path.resolve(__dirname, '../dist'),
+            verbose: true,
+            dry: false,
+            cleanOnceBeforeBuildPatterns: ['^(?!vendor).*$']
+        }),
+        new UglifyJsPlugin(
             {
                 uglifyOptions: {
                     compress: {
@@ -85,6 +110,32 @@ module.exports = {
                 sourceMap: false,
                 parallel: true
             }
-        )],
+        ),
+        new DllReferencePlugin({
+            manifest: require(path.resolve(__dirname, '../dist/vendor-manifest.json'))
+        }),
+        new BundleAnalyzerPlugin()
+    ],
+    optimization: {
+        splitChunks: {
+            chunks: "async",
+            minSize: 30000,
+            minChunks: 1,
+            maxAsyncRequests: 5,
+            maxInitialRequests: 3,
+            automaticNameDelimiter: '~',
+            name: true,
+            cacheGroups: {
+                vendors: {
+                    test: /[\\/]node_modules[\\/]/,
+                    priority: -10
+                },
+                default: {
+                    minChunks: 2,
+                    priority: -20,
+                    reuseExistingChunk: true
+                }
+            }
+        }
     },
 }

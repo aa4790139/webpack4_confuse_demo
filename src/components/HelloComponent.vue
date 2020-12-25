@@ -1,5 +1,6 @@
 <template>
     <div class="hello">
+        <img src="../../static/image/icon-x2.png" />
         <h3>{{m_aesTitle}}</h3>
         <div style="display: flex;">
             <div class="block">
